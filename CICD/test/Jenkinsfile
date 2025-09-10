@@ -1,0 +1,103 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE_TAG = 'test'
+        DOCKER_REGISTRY_PUSH_URL = '172.27.224.1:5000' //  WSL Docker 私有仓库的 URL
+        DOCKER_REGISTRY_PULL_URL = '172.27.224.1:5001' //  WSL Docker 私有仓库的 URL
+        DOCKER_IMAGE = 'test'  // 要构建和推送的 Docker 镜像名称
+        DOCKER_CONTAINER = 'test'
+        DOCKER_CREDENTIALS_ID = 'docker-registry-credentials'
+    }
+
+    stages {
+        stage('Clear Docker chache') {
+            steps {
+                script {
+                    // Compile the Maven project
+                    sh 'docker system prune -f'
+                    sh 'docker image rm -f $DOCKER_IMAGE:$DOCKER_IMAGE_TAG 2>/dev/null'
+                    sh 'docker builder prune --all --force'
+                }
+            }
+        }
+        stage('Build Docker Image') {
+            steps {
+                // 构建 Docker 镜像
+                sh 'docker build -t $DOCKER_REGISTRY_PUSH_URL/$DOCKER_IMAGE:$DOCKER_IMAGE_TAG  -f Dockerfile .'
+            }
+        }
+        stage('Login to Docker Registry') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'docker-registry-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        // 登录 Docker 私有仓库
+                        sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin $DOCKER_REGISTRY_PUSH_URL'
+                    }
+                }
+            }
+        }
+        stage('Push Docker Image') {
+            steps {
+                // 推送 Docker 镜像到私有仓库
+                sh 'docker push $DOCKER_REGISTRY_PUSH_URL/$DOCKER_IMAGE:$DOCKER_IMAGE_TAG'
+            }
+        }
+
+        stage('Logout from Docker Registry') {
+            steps {
+                // 登出 Docker 私有仓库
+                sh 'docker logout $DOCKER_REGISTRY_PUSH_URL'
+            }
+        }
+        stage('Remove Docker Image') {
+            steps {
+                // 删除本地 Docker 镜像
+                sh 'docker rmi $DOCKER_REGISTRY_PUSH_URL/$DOCKER_IMAGE:$DOCKER_IMAGE_TAG'
+            }
+        }
+        stage('Deploy') {
+            steps {
+                script {
+                    // 检查并停止旧容器
+                    echo "[DOCKER] 判断原容器是否启动"
+                    def container_id = sh(script: 'docker ps -a | awk \'/' + DOCKER_CONTAINER + ':' + DOCKER_IMAGE_TAG + '/{print $1}\'', returnStdout: true).trim()
+                    if (container_id) {
+                        echo "[DOCKER] 停止并删除已经启动的容器"
+                        sh "docker stop $container_id"
+                        sh "docker rm $container_id"
+                    }
+
+                    // 定义镜像名称
+                    echo "[DOCKER] 删除原来下载的老镜像"
+                    def image = DOCKER_REGISTRY_PULL_URL+'/'+DOCKER_IMAGE+':'+DOCKER_IMAGE_TAG
+
+                    // 检查镜像是否存在
+                    def image_exists = sh(script: "docker images --format '{{.Repository}}:{{.Tag}}' | grep -q '^${image}\$'", returnStatus: true) == 0
+
+                    // 如果镜像存在则删除
+                    if (image_exists) {
+                        echo "[DOCKER] 镜像存在，执行删除操作..."
+                        sh "docker rmi ${image}"
+                    } else {
+                        echo "[DOCKER] 镜像不存在，无需删除。"
+                    }
+                    echo "[DOCKER-COMPOSE] 重新启动容器到WSL"
+                    sh 'docker-compose -f /home/${USER}/workspace/docker/docker-compose.yml up -d --build $DOCKER_CONTAINER'
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline succeeded!'
+            echo '测试环境已成功部署到WSL: http://172.27.224.1:5008'
+            echo 'GitHub仓库: https://github.com/bike13/test'
+        }
+        failure {
+            echo 'Pipeline failed :('
+            echo '请检查构建日志和配置'
+        }
+    }
+}

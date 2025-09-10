@@ -1,0 +1,19 @@
+# 该 docker-compose.yml 配置文件用于定义和管理一个名为 "app" 的服务，通常用于部署 AI 应用后端。
+version: '3.8'
+
+services:
+  app:
+    build: .  # 使用当前目录下的 Dockerfile 构建镜像
+    container_name: susheng-ai-app  # 指定容器名称为 susheng-ai-app
+    ports:
+      - "8080:8000"  # 将主机的 8080 端口映射到容器的 8000 端口
+    volumes:
+      - ./logs:/app/logs  # 挂载本地 logs 目录到容器内 /app/logs，实现日志持久化
+
+    restart: unless-stopped  # 容器异常退出时自动重启，除非手动停止
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/index"]  # 健康检查命令，访问接口判断服务是否存活
+      interval: 30s  # 每 30 秒检查一次
+      timeout: 10s   # 检查超时时间为 10 秒
+      retries: 3     # 连续失败 3 次视为不健康
+

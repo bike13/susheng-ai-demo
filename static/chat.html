@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI智能助手</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@2.1.3/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chat-container {
+            position: fixed;
+            bottom: 50%;
+            right: 50%;
+            transform: translate(50%, 50%);
+            z-index: 1000;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+        }
+
+        .user-info-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .user-info-form {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 500px;
+            animation: slideIn 0.3s ease;
+        }
+
+        .user-info-form h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: #667eea;
+        }
+
+        .form-group input.error,
+        .form-group select.error {
+            border-color: #ff4757;
+        }
+
+        .error-message {
+            color: #ff4757;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .chat-toggle-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 32px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-toggle-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .chat-window {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90vw;
+            height: 90vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-header h3 {
+            font-size: 26px;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            transition: background 0.3s ease;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 80%;
+            padding: 20px 25px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 4px;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin: 0 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .user-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .assistant-avatar {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .suggestions {
+            padding: 20px 30px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .suggestions-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .suggestions h4 {
+            font-size: 15px;
+            color: #666;
+            margin: 0;
+        }
+
+        .refresh-btn {
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            color: #666;
+        }
+
+        .refresh-btn:hover:not(:disabled) {
+            background: #f0f0f0;
+            color: #333;
+            transform: scale(1.1);
+        }
+
+        .refresh-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .spinning {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .suggestion-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .suggestion-tag {
+            background: #f0f0f0;
+            color: #333;
+            padding: 8px 16px;
+            border-radius: 15px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .suggestion-tag:hover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        .chat-input {
+            padding: 25px 30px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .input-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 18px 25px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .message-input:focus {
+            border-color: #667eea;
+        }
+
+        .send-btn, .voice-btn {
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            font-size: 20px;
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .voice-btn {
+            background: #28a745;
+            color: white;
+        }
+
+        .voice-btn:hover {
+            background: #218838;
+            transform: scale(1.1);
+        }
+
+        .voice-btn.recording {
+            background: #dc3545;
+            color: white;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 12px 16px;
+            background: white;
+            border-radius: 18px;
+            border: 1px solid #e0e0e0;
+            max-width: 80%;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #999;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes typing {
+            0%, 80%, 100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .welcome-message {
+            text-align: center;
+            color: #666;
+            font-size: 16px;
+            margin: 40px 0;
+        }
+
+        .error-message {
+            background: #ff4757;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+
+        .session-info {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 11px;
+            color: #666;
+            border-left: 3px solid #667eea;
+        }
+
+        .markdown-content {
+            line-height: 1.6;
+        }
+
+        .markdown-content h1,
+        .markdown-content h2,
+        .markdown-content h3,
+        .markdown-content h4,
+        .markdown-content h5,
+        .markdown-content h6 {
+            margin: 16px 0 8px 0;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+
+        .markdown-content h1 { font-size: 1.8em; }
+        .markdown-content h2 { font-size: 1.4em; }
+        .markdown-content h3 { font-size: 1.2em; }
+        .markdown-content h4 { font-size: 1.1em; }
+        .markdown-content h5 { font-size: 1em; }
+        .markdown-content h6 { font-size: 0.95em; }
+
+        .markdown-content p {
+            margin: 8px 0;
+        }
+
+        .markdown-content ul,
+        .markdown-content ol {
+            margin: 8px 0;
+            padding-left: 24px;
+        }
+
+        .markdown-content li {
+            margin: 4px 0;
+        }
+
+        .markdown-content blockquote {
+            margin: 8px 0;
+            padding: 8px 16px;
+            border-left: 4px solid #667eea;
+            background: #f8f9fa;
+        }
+
+        .markdown-content code {
+            background: #f1f3f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+
+        .markdown-content pre {
+            background: #f6f8fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 16px;
+            overflow-x: auto;
+            margin: 8px 0;
+        }
+
+        .markdown-content pre code {
+            background: none;
+            padding: 0;
+            border-radius: 0;
+        }
+
+        .markdown-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 8px 0;
+        }
+
+        .markdown-content th,
+        .markdown-content td {
+            border: 1px solid #e1e4e8;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        .markdown-content th {
+            background: #f6f8fa;
+            font-weight: 600;
+        }
+
+        .markdown-content a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .markdown-content a:hover {
+            text-decoration: underline;
+        }
+
+        .markdown-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+
+        .markdown-content hr {
+            border: none;
+            border-top: 1px solid #e1e4e8;
+            margin: 16px 0;
+        }
+
+        .message.user .markdown-content {
+            color: white;
+        }
+
+        .message.user .markdown-content code {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .message.user .markdown-content blockquote {
+            background: rgba(255, 255, 255, 0.1);
+            border-left-color: rgba(255, 255, 255, 0.5);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .message.user .markdown-content a {
+            color: rgba(255, 255, 255, 0.9);
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 用户信息输入模态框 -->
+        <div v-if="showUserInfoModal" class="user-info-modal">
+            <div class="user-info-form">
+                <h2>👤 用户信息</h2>
+                <form @submit.prevent="submitUserInfo">
+                    <div class="form-group">
+                        <label for="userId">用户ID <span style="color: #ff4757;">*</span></label>
+                        <input 
+                            type="text" 
+                            id="userId"
+                            v-model="userInfo.userId" 
+                            placeholder="请输入您的用户ID"
+                            :class="{ error: userInfoErrors.userId }"
+                            @blur="validateUserId"
+                        >
+                        <div v-if="userInfoErrors.userId" class="error-message">
+                            {{ userInfoErrors.userId }}
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="grade">年级 <span style="color: #ff4757;">*</span></label>
+                        <select 
+                            id="grade"
+                            v-model="userInfo.grade" 
+                            :class="{ error: userInfoErrors.grade }"
+                            @change="validateGrade"
+                        >
+                            <option value="">请选择年级</option>
+                            <option value="小学一年级">小学一年级</option>
+                            <option value="小学二年级">小学二年级</option>
+                            <option value="小学三年级">小学三年级</option>
+                            <option value="小学四年级">小学四年级</option>
+                            <option value="小学五年级">小学五年级</option>
+                            <option value="小学六年级">小学六年级</option>
+                            <option value="初中一年级">初中一年级</option>
+                            <option value="初中二年级">初中二年级</option>
+                            <option value="初中三年级">初中三年级</option>
+                            <option value="高中一年级">高中一年级</option>
+                            <option value="高中二年级">高中二年级</option>
+                            <option value="高中三年级">高中三年级</option>
+                            <option value="大学">大学</option>
+                            <option value="研究生">研究生</option>
+                        </select>
+                        <div v-if="userInfoErrors.grade" class="error-message">
+                            {{ userInfoErrors.grade }}
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn" :disabled="!isUserInfoValid">
+                        开始聊天 💬
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div v-if="isOpen" class="chat-window">
+                <div class="chat-header">
+                    <h3>🤖 AI智能助手 - {{ userInfo.userId }} ({{ userInfo.grade }})</h3>
+                    <button class="close-btn" @click="closeChat">✕</button>
+                </div>
+
+                <div class="chat-messages" ref="messagesContainer">
+                    <div v-if="messages.length === 0" class="welcome-message">
+                        👋 你好，{{ userInfo.userId }}！我是AI助手，有什么可以帮助你的吗？<br>
+                        <small style="color: #999; font-size: 12px;">当前年级：{{ userInfo.grade }}</small>
+                    </div>
+                    
+                    <div v-if="sessionId" class="session-info">
+                        会话ID: {{ sessionId.substring(0, 8) }}...
+                    </div>
+
+                    <div v-if="errorMessage" class="error-message">
+                        {{ errorMessage }}
+                    </div>
+
+                    <div v-for="(message, index) in messages" :key="index" 
+                         :class="['message', message.type]">
+                        <div v-if="message.type === 'assistant'" class="avatar assistant-avatar">AI</div>
+                        <div class="message-content">
+                            <div v-if="message.type === 'assistant'" 
+                                 class="markdown-content" 
+                                 v-html="renderMarkdown(message.content)"></div>
+                            <div v-else>{{ message.content }}</div>
+                        </div>
+                        <div v-if="message.type === 'user'" class="avatar user-avatar">我</div>
+                    </div>
+
+                    <div v-if="isTyping" class="message assistant">
+                        <div class="avatar assistant-avatar">AI</div>
+                        <div class="typing-indicator">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="suggestions" v-if="suggestions.length > 0">
+                    <div class="suggestions-header">
+                        <h4>💡 猜你想问：</h4>
+                        <button class="refresh-btn" 
+                                @click="refreshSuggestions" 
+                                :disabled="isRefreshingSuggestions"
+                                title="刷新推荐问题">
+                            <span v-if="!isRefreshingSuggestions">🔄</span>
+                            <span v-else class="spinning">🔄</span>
+                        </button>
+                    </div>
+                    <div class="suggestion-tags">
+                        <button v-for="(suggestion, index) in suggestions" 
+                                :key="`suggestion-${index}-${suggestion}`"
+                                class="suggestion-tag"
+                                @click="sendMessageStream(suggestion)">
+                            {{ suggestion }}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chat-input">
+                    <div class="input-container">
+                        <input type="text" 
+                               class="message-input" 
+                               v-model="inputMessage"
+                               @keyup.enter="sendMessageStream()"
+                               placeholder="输入你的问题..."
+                               :disabled="isTyping">
+                        
+                        <button class="voice-btn" 
+                                :class="{ recording: isRecording }"
+                                @click="toggleVoiceInput"
+                                :disabled="isTyping">
+                            🎤
+                        </button>
+                        
+                        <button class="send-btn" 
+                                @click="sendMessageStream()"
+                                :disabled="!inputMessage.trim() || isTyping">
+                            ➤
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <button v-if="!isOpen" class="chat-toggle-btn" @click="openChat">
+                💬
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    isOpen: false,
+                    inputMessage: '',
+                    messages: [],
+                    isTyping: false,
+                    isRecording: false,
+                    sessionId: null,
+                    errorMessage: '',
+                    suggestions: [],
+                    isRefreshingSuggestions: false,
+                    apiBaseUrl: 'http://localhost:8080',
+                    mediaRecorder: null,
+                    audioChunks: [],
+                    // 用户信息相关
+                    showUserInfoModal: true,
+                    userInfo: {
+                        userId: '用户_123',
+                        grade: '小学三年级'
+                    },
+                    userInfoErrors: {
+                        userId: '',
+                        grade: ''
+                    }
+                }
+            },
+            computed: {
+                isUserInfoValid() {
+                    return this.userInfo.userId.trim() !== '' && 
+                           this.userInfo.grade !== '' && 
+                           !this.userInfoErrors.userId && 
+                           !this.userInfoErrors.grade;
+                }
+            },
+            methods: {
+                // 用户信息验证方法
+                validateUserId() {
+                    const userId = this.userInfo.userId.trim();
+                    if (!userId) {
+                        this.userInfoErrors.userId = '用户ID不能为空';
+                        return false;
+                    }
+                    if (userId.length < 2) {
+                        this.userInfoErrors.userId = '用户ID至少需要2个字符';
+                        return false;
+                    }
+                    if (userId.length > 20) {
+                        this.userInfoErrors.userId = '用户ID不能超过20个字符';
+                        return false;
+                    }
+                    // 检查是否包含特殊字符
+                    if (!/^[a-zA-Z0-9\u4e00-\u9fa5_-]+$/.test(userId)) {
+                        this.userInfoErrors.userId = '用户ID只能包含字母、数字、中文、下划线和连字符';
+                        return false;
+                    }
+                    this.userInfoErrors.userId = '';
+                    return true;
+                },
+                
+                validateGrade() {
+                    if (!this.userInfo.grade) {
+                        this.userInfoErrors.grade = '请选择年级';
+                        return false;
+                    }
+                    this.userInfoErrors.grade = '';
+                    return true;
+                },
+                
+                submitUserInfo() {
+                    // 验证所有字段
+                    const isUserIdValid = this.validateUserId();
+                    const isGradeValid = this.validateGrade();
+                    
+                    if (isUserIdValid && isGradeValid) {
+                        console.log('用户信息提交成功:', this.userInfo);
+                        this.showUserInfoModal = false;
+                        this.openChat();
+                    } else {
+                        console.log('用户信息验证失败');
+                    }
+                },
+                initializeLibraries() {
+                    if (typeof marked !== 'undefined') {
+                        console.log('marked 库已加载，正在配置...');
+                        marked.setOptions({
+                            breaks: true,
+                            gfm: true,
+                            highlight: function(code, lang) {
+                                if (typeof hljs !== 'undefined' && lang && hljs.getLanguage(lang)) {
+                                    try {
+                                        return hljs.highlight(code, { language: lang }).value;
+                                    } catch (err) {
+                                        console.error('代码高亮失败:', err);
+                                    }
+                                }
+                                if (typeof hljs !== 'undefined') {
+                                    return hljs.highlightAuto(code).value;
+                                }
+                                return code;
+                            }
+                        });
+                        console.log('marked 配置完成');
+                    } else {
+                        console.warn('marked 库未加载，将使用原始文本显示');
+                    }
+                },
+                
+                renderMarkdown(content) {
+                    try {
+                        if (typeof marked === 'undefined') {
+                            console.warn('marked 库未加载，使用原始文本');
+                            return content;
+                        }
+                        
+                        let result = marked.parse(content);
+                        
+                        if (typeof DOMPurify !== 'undefined') {
+                            result = DOMPurify.sanitize(result);
+                        }
+                        
+                        return result;
+                    } catch (error) {
+                        console.error('Markdown 渲染失败:', error);
+                        return this.simpleMarkdownRender(content);
+                    }
+                },
+                
+                simpleMarkdownRender(content) {
+                    try {
+                        let result = content;
+                        result = result.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                        result = result.replace(/__(.*?)__/g, '<strong>$1</strong>');
+                        result = result.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                        result = result.replace(/_(.*?)_/g, '<em>$1</em>');
+                        result = result.replace(/`(.*?)`/g, '<code>$1</code>');
+                        result = result.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+                        result = result.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+                        result = result.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+                        result = result.replace(/^\- (.*$)/gm, '<li>$1</li>');
+                        result = result.replace(/^(\d+)\. (.*$)/gm, '<li>$2</li>');
+                        result = result.replace(/\n/g, '<br>');
+                        return result;
+                    } catch (error) {
+                        console.error('简单 Markdown 渲染失败:', error);
+                        return content;
+                    }
+                },
+                
+                async openChat() {
+                    // 检查用户信息是否已填写
+                    if (!this.userInfo.userId || !this.userInfo.grade) {
+                        this.showUserInfoModal = true;
+                        return;
+                    }
+                    
+                    this.isOpen = true;
+                    console.log('打开聊天窗口，用户信息:', this.userInfo);
+                    this.messages = [];
+                    this.sessionId = null;
+                    this.errorMessage = '';
+                    this.suggestions = [];
+                    await this.initializeSession();
+                },
+                
+                closeChat() {
+                    if (this.sessionId && this.messages.length > 0) {
+                        if (confirm('确定要关闭聊天并删除当前会话吗？此操作不可恢复。')) {
+                            this.deleteCurrentSession();
+                        }
+                    } else if (this.sessionId) {
+                        this.deleteCurrentSession();
+                    }
+                    
+                    this.isOpen = false;
+                    this.errorMessage = '';
+                    this.messages = [];
+                    this.sessionId = null;
+                    this.suggestions = [];
+                    this.isRefreshingSuggestions = false;
+                    // 重置用户信息，下次打开需要重新填写
+                    this.userInfo.userId = '';
+                    this.userInfo.grade = '';
+                    this.userInfoErrors.userId = '';
+                    this.userInfoErrors.grade = '';
+                    this.showUserInfoModal = true;
+                },
+                
+                async initializeSession() {
+                    try {
+                        console.log('正在初始化会话...');
+                        const response = await fetch(`${this.apiBaseUrl}/chat/sessions`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                user_id: this.userInfo.userId
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        }
+                        
+                        const result = await response.json();
+                        console.log('API响应:', result);
+                        
+                        if (result.success && result.data && result.data.session_id) {
+                            this.sessionId = result.data.session_id;
+                            console.log('会话创建成功:', this.sessionId);
+                            await this.loadSuggestions();
+                        } else {
+                            this.errorMessage = result.message || '创建会话失败';
+                            console.error('创建会话失败:', result);
+                        }
+                    } catch (error) {
+                        console.error('初始化会话失败:', error);
+                        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                            this.errorMessage = '连接服务器失败，请检查网络连接';
+                        } else {
+                            this.errorMessage = `初始化会话失败: ${error.message}`;
+                        }
+                    }
+                },
+                
+                async loadSuggestions() {
+                    if (!this.sessionId) {
+                        console.warn('没有会话ID，无法加载推荐问题');
+                        return;
+                    }
+                    
+                    try {
+                        console.log('正在加载推荐问题，会话ID:', this.sessionId);
+                        const response = await fetch(`${this.apiBaseUrl}/chat/suggestions?session_id=${this.sessionId}&user_id=${this.userInfo.userId}`);
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            this.suggestions = [...result.data.suggestions];
+                            this.$nextTick(() => {});
+                        } else {
+                            console.warn('加载推荐问题失败:', result.message || '未知错误');
+                            this.suggestions = [
+                                "请介绍一下你自己",
+                                "你能做什么？",
+                                "如何使用这个AI助手？"
+                            ];
+                        }
+                    } catch (error) {
+                        console.error('加载推荐问题失败:', error);
+                        this.suggestions = [
+                            "请介绍一下你自己",
+                            "你能做什么？",
+                            "如何使用这个AI助手？"
+                        ];
+                    }
+                },
+                
+                async refreshSuggestions() {
+                    if (!this.sessionId || this.isRefreshingSuggestions) {
+                        return;
+                    }
+                    
+                    this.isRefreshingSuggestions = true;
+                    console.log('正在刷新推荐问题...');
+                    
+                    try {
+                        // 添加时间戳参数确保获取新的推荐问题
+                        const response = await fetch(`${this.apiBaseUrl}/chat/suggestions?session_id=${this.sessionId}&user_id=${this.userInfo.userId}&t=${Date.now()}`);
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            this.suggestions = [...result.data.suggestions];
+                            console.log('推荐问题刷新成功');
+                            this.$nextTick(() => {});
+                        } else {
+                            console.warn('刷新推荐问题失败:', result.message || '未知错误');
+                            this.errorMessage = '刷新推荐问题失败，请稍后重试';
+                        }
+                    } catch (error) {
+                        console.error('刷新推荐问题失败:', error);
+                        this.errorMessage = '刷新推荐问题失败，请检查网络连接';
+                    } finally {
+                        this.isRefreshingSuggestions = false;
+                    }
+                },
+                
+                async sendMessage(message = null) {
+                    const content = message || this.inputMessage.trim();
+                    if (!content || !this.sessionId) return;
+                    await this.sendMessageStream(content);
+                },
+                
+                async sendMessageStream(message = null) {
+                    const content = message || this.inputMessage.trim();
+                    if (!content || !this.sessionId) return;
+
+                    this.messages.push({
+                        type: 'user',
+                        content: content
+                    });
+
+                    this.inputMessage = '';
+                    this.isTyping = true;
+                    this.errorMessage = '';
+
+                    try {
+                        const response = await fetch(`${this.apiBaseUrl}/chat/messages/stream`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'text/event-stream'
+                            },
+                            body: JSON.stringify({
+                                session_id: this.sessionId,
+                                user_id: this.userInfo.userId,
+                                message: content,
+                                type: 'text'
+                            })
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('流式请求失败');
+                        }
+
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+                        let buffer = '';
+
+                        this.messages.push({
+                            type: 'assistant',
+                            content: ''
+                        });
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+
+                            buffer += decoder.decode(value, { stream: true });
+                            
+                            const lines = buffer.split('\n');
+                            buffer = lines.pop() || '';
+
+                            for (const line of lines) {
+                                if (line.startsWith('data: ')) {
+                                    try {
+                                        const data = JSON.parse(line.slice(6));
+                                        if (data.chunk === '[DONE]') {
+                                            this.isTyping = false;
+                                            await this.loadSuggestions();
+                                            this.$forceUpdate();
+                                            return;
+                                        }
+                                        
+                                        this.messages[this.messages.length - 1].content += data.chunk;
+                                        this.$forceUpdate();
+                                        
+                                        this.$nextTick(() => {
+                                            this.scrollToBottom();
+                                        });
+                                    } catch (e) {
+                                        console.error('解析流数据失败:', e, '原始数据:', line);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('流式发送消息失败:', error);
+                        this.errorMessage = '流式响应失败，请稍后重试';
+                        this.isTyping = false;
+                    }
+                },
+                
+                async toggleVoiceInput() {
+                    if (!this.isRecording) {
+                        await this.startVoiceRecording();
+                    } else {
+                        this.stopVoiceRecording();
+                    }
+                },
+                
+                async startVoiceRecording() {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        this.mediaRecorder = new MediaRecorder(stream);
+                        this.audioChunks = [];
+                        
+                        this.mediaRecorder.ondataavailable = (event) => {
+                            this.audioChunks.push(event.data);
+                        };
+                        
+                        this.mediaRecorder.onstop = async () => {
+                            const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+                            await this.processVoiceAudio(audioBlob);
+                            stream.getTracks().forEach(track => track.stop());
+                        };
+                        
+                        this.mediaRecorder.start();
+                        this.isRecording = true;
+                        console.log('开始录音...');
+                        
+                    } catch (error) {
+                        console.error('无法访问麦克风:', error);
+                        alert('无法访问麦克风，请检查权限设置。');
+                    }
+                },
+                
+                stopVoiceRecording() {
+                    if (this.mediaRecorder && this.isRecording) {
+                        this.mediaRecorder.stop();
+                        this.isRecording = false;
+                        console.log('停止录音...');
+                    }
+                },
+                
+                async processVoiceAudio(audioBlob) {
+                    try {
+                        const formData = new FormData();
+                        formData.append('file', audioBlob, 'voice.wav');
+                        
+                        console.log('正在识别语音...');
+                        const response = await fetch(`${this.apiBaseUrl}/chat/voice`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        if (response.ok) {
+                            const result = await response.json();
+                            const recognizedText = result.text;
+                            
+                            console.log('语音识别结果:', recognizedText);
+                            
+                            this.inputMessage = recognizedText;
+                            
+                            if (recognizedText.trim()) {
+                                await this.sendMessageStream(recognizedText);
+                            }
+                        } else {
+                            throw new Error(`语音识别失败: ${response.status}`);
+                        }
+                    } catch (error) {
+                        console.error('语音识别失败:', error);
+                        this.errorMessage = '语音识别失败，请稍后重试';
+                    }
+                },
+                
+                scrollToBottom() {
+                    const container = this.$refs.messagesContainer;
+                    if (container) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+                },
+                
+                async deleteCurrentSession() {
+                    if (!this.sessionId) {
+                        console.log('没有活动会话需要删除');
+                        return;
+                    }
+                    
+                    try {
+                        console.log('正在删除会话:', this.sessionId);
+                        
+                        const response = await fetch(`${this.apiBaseUrl}/chat/deleteSessions`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                session_id: this.sessionId,
+                                user_id: this.userInfo.userId
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            console.log('会话删除成功:', result.message);
+                        } else {
+                            console.error('会话删除失败:', result.message);
+                        }
+                    } catch (error) {
+                        console.error('删除会话时发生错误:', error);
+                    }
+                }
+            },
+            mounted() {
+                console.log('AI助手前端已加载，API地址:', this.apiBaseUrl);
+                
+                this.$nextTick(() => {
+                    setTimeout(() => {
+                        this.initializeLibraries();
+                    }, 100);
+                });
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
