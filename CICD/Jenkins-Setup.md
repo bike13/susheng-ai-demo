@@ -145,4 +145,3 @@ docker-compose restart susheng-ai-app
 ### 8.2 日志查看
 - Jenkins 构建日志：在任务页面查看
 - 容器运行日志：`docker-compose logs`
-- 应用日志：`./logs/fastapi.log`
