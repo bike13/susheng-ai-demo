@@ -2,6 +2,10 @@
 pipeline {
     agent any
 
+    parameters {
+        string(name: 'git_branch', defaultValue: 'main', description: 'Git branch to build')
+    }
+
     environment {
         DOCKER_IMAGE = 'susheng-ai-demo:pro'
         DOCKER_CONTAINER = 'susheng-ai-app'
@@ -10,6 +14,17 @@ pipeline {
     }
 
     stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    echo "Building from branch: ${params.git_branch}"
+                    // 检查当前目录和文件
+                    sh 'pwd'
+                    sh 'ls -la'
+                }
+            }
+        }
+        
         stage('Build & Deploy') {
             steps {
                 script {
