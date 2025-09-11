@@ -10,6 +10,7 @@ pipeline {
         DOCKER_CONTAINER = 'susheng-ai-app'
         MYSQL_HOST = 'sql.freedb.tech'
         MYSQL_PORT = '3306'
+        WORKSPACE_DIR = "${WORKSPACE}"
     }
 
     stages {
@@ -17,11 +18,35 @@ pipeline {
             steps {
                 script {
                     echo "Building from branch: ${params.git_branch}"
-                    // 检出代码
-                    checkout scm
-                    // 检查当前目录和文件
-                    sh 'pwd'
+                    // 明确指定分支检出代码
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: "*/${params.git_branch}"]],
+                        userRemoteConfigs: [[
+                            url: scm.userRemoteConfigs[0].url,
+                            credentialsId: scm.userRemoteConfigs[0].credentialsId
+                        ]]
+                    ])
+                }
+            }
+        }
+        
+        stage('Diagnose') {
+            steps {
+                script {
+                    echo "=== 诊断信息 ==="
+                    sh 'echo "当前工作目录: $(pwd)"'
+                    sh 'echo "Jenkins工作空间: $WORKSPACE"'
+                    sh 'echo "环境变量WORKSPACE_DIR: $WORKSPACE_DIR"'
+                    sh 'echo "当前Git分支: $(git branch --show-current 2>/dev/null || echo "无法获取分支信息")"'
+                    sh 'echo "Git远程分支列表:"'
+                    sh 'git branch -r 2>/dev/null || echo "无法获取远程分支"'
                     sh 'ls -la'
+                    sh 'echo "查找Dockerfile:"'
+                    sh 'find . -name "Dockerfile" -type f -exec echo "找到: {}" \\;'
+                    sh 'test -f Dockerfile && echo "✅ Dockerfile存在" || echo "❌ Dockerfile不存在"'
+                    sh 'echo "Dockerfile内容预览:"'
+                    sh 'head -5 Dockerfile 2>/dev/null || echo "无法读取Dockerfile"'
                 }
             }
         }
@@ -34,7 +59,7 @@ pipeline {
                     sh 'docker rm $DOCKER_CONTAINER 2>/dev/null || true'
                     
                     // 构建新镜像
-                    sh 'docker build -t $DOCKER_IMAGE .'
+                    sh 'docker build --no-cache -t $DOCKER_IMAGE .'
                     
                     // 启动新容器
                     sh 'docker run -d --name $DOCKER_CONTAINER -p 8080:8000 -e MYSQL_HOST=$MYSQL_HOST -e MYSQL_PORT=$MYSQL_PORT $DOCKER_IMAGE'
