@@ -18,15 +18,36 @@ pipeline {
             steps {
                 script {
                     echo "Building from branch: ${params.git_branch}"
-                    // 明确指定分支检出代码
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: "*/${params.git_branch}"]],
-                        userRemoteConfigs: [[
-                            url: scm.userRemoteConfigs[0].url,
-                            credentialsId: scm.userRemoteConfigs[0].credentialsId
-                        ]]
-                    ])
+                    
+                    // 尝试多种方式检出代码
+                    sh '''
+                        echo "=== 尝试检出代码 ==="
+                        
+                        // 方法1: 使用checkout scm但指定分支
+                        echo "方法1: 使用checkout scm"
+                        checkout scm || echo "checkout scm 失败"
+                        
+                        // 检查是否成功
+                        if [ -f "Dockerfile" ]; then
+                            echo "✅ 方法1成功 - 找到Dockerfile"
+                            echo "当前分支: $(git branch --show-current 2>/dev/null || echo '无法获取分支')"
+                        else
+                            echo "❌ 方法1失败 - 未找到Dockerfile"
+                            
+                            // 方法2: 手动git操作
+                            echo "方法2: 手动git操作"
+                            git fetch origin || echo "git fetch 失败"
+                            git checkout ${params.git_branch} || git checkout main || echo "分支切换失败"
+                            git pull origin ${params.git_branch} || git pull origin main || echo "git pull 失败"
+                        fi
+                        
+                        echo "=== 最终验证 ==="
+                        echo "当前目录: $(pwd)"
+                        echo "文件列表:"
+                        ls -la
+                        echo "Dockerfile检查:"
+                        test -f Dockerfile && echo "✅ Dockerfile存在" || echo "❌ Dockerfile不存在"
+                    '''
                 }
             }
         }
