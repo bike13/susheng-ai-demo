@@ -69,7 +69,7 @@ pipeline {
                     sh 'docker build --no-cache -t $DOCKER_IMAGE .'
                     
                     // 启动新容器
-                    sh 'docker run -d --name $DOCKER_CONTAINER -p 8080:8000 -e MYSQL_HOST=$MYSQL_HOST -e MYSQL_PORT=$MYSQL_PORT $DOCKER_IMAGE'
+                    sh 'docker run -d --name $DOCKER_CONTAINER -p 8000:8000 -e MYSQL_HOST=$MYSQL_HOST -e MYSQL_PORT=$MYSQL_PORT $DOCKER_IMAGE'
                 }
             }
         }
@@ -78,8 +78,8 @@ pipeline {
     post {
         success {
             echo '✅ 部署成功!'
-            echo '🌐 应用地址: http://localhost:8080'
-            echo '📚 API文档: http://localhost:8080/docs'
+            echo '🌐 应用地址: http://localhost:8000'
+            echo '📚 API文档: http://localhost:8000/docs'
         }
         failure {
             echo '❌ 部署失败，请检查日志'
