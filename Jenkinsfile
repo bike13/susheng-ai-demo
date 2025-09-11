@@ -1,4 +1,3 @@
-// 简化的 Jenkins Pipeline 脚本
 pipeline {
     agent any
 
@@ -9,7 +8,7 @@ pipeline {
     environment {
         DOCKER_IMAGE = 'susheng-ai-demo:pro'
         DOCKER_CONTAINER = 'susheng-ai-app'
-        MYSQL_HOST = '172.27.224.1'
+        MYSQL_HOST = 'sql.freedb.tech'
         MYSQL_PORT = '3306'
     }
 
@@ -18,6 +17,8 @@ pipeline {
             steps {
                 script {
                     echo "Building from branch: ${params.git_branch}"
+                    // 检出代码
+                    checkout scm
                     // 检查当前目录和文件
                     sh 'pwd'
                     sh 'ls -la'
