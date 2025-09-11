@@ -61,15 +61,78 @@ pipeline {
         stage('Build & Deploy') {
             steps {
                 script {
-                    // 停止并删除旧容器
-                    sh 'docker stop $DOCKER_CONTAINER 2>/dev/null || true'
-                    sh 'docker rm $DOCKER_CONTAINER 2>/dev/null || true'
-                    
-                    // 构建新镜像
-                    sh 'docker build --no-cache -t $DOCKER_IMAGE .'
-                    
-                    // 启动新容器
-                    sh 'docker run -d --name $DOCKER_CONTAINER -p 8080:8000 -e MYSQL_HOST=$MYSQL_HOST -e MYSQL_PORT=$MYSQL_PORT $DOCKER_IMAGE'
+                    sh '''
+                        echo "=== 清理旧容器和端口 ==="
+                        
+                        # 停止并删除旧容器
+                        echo "停止容器 $DOCKER_CONTAINER..."
+                        docker stop $DOCKER_CONTAINER 2>/dev/null || echo "容器 $DOCKER_CONTAINER 不存在或已停止"
+                        
+                        echo "删除容器 $DOCKER_CONTAINER..."
+                        docker rm $DOCKER_CONTAINER 2>/dev/null || echo "容器 $DOCKER_CONTAINER 不存在"
+                        
+                        # 检查并清理占用8080端口的容器
+                        echo "检查端口8080占用情况..."
+                        PORT_CONTAINER=$(docker ps -q --filter "publish=8080")
+                        if [ ! -z "$PORT_CONTAINER" ]; then
+                            echo "发现占用8080端口的容器: $PORT_CONTAINER"
+                            docker stop $PORT_CONTAINER
+                            docker rm $PORT_CONTAINER
+                            echo "已清理占用端口的容器"
+                        else
+                            echo "端口8080未被占用"
+                        fi
+                        
+                        # 等待端口释放
+                        sleep 2
+                        
+                        echo "=== 构建Docker镜像 ==="
+                        docker build --no-cache -t $DOCKER_IMAGE .
+                        
+                        echo "=== 启动新容器 ==="
+                        # 按照docker-compose.yml配置启动容器
+                        # 主机端口8080映射到容器端口8000
+                        docker run -d \
+                            --name $DOCKER_CONTAINER \
+                            -p 8080:8000 \
+                            -e MYSQL_HOST=$MYSQL_HOST \
+                            -e MYSQL_PORT=$MYSQL_PORT \
+                            -v $(pwd)/logs:/app/logs \
+                            --restart unless-stopped \
+                            $DOCKER_IMAGE
+                        
+                        echo "=== 验证部署 ==="
+                        sleep 5
+                        
+                        # 检查容器是否运行
+                        if docker ps | grep -q $DOCKER_CONTAINER; then
+                            echo "✅ 容器启动成功"
+                            docker ps | grep $DOCKER_CONTAINER
+                            
+                            # 健康检查 - 按照docker-compose.yml的配置
+                            echo "=== 健康检查 ==="
+                            for i in {1..6}; do
+                                echo "健康检查第 $i 次..."
+                                if curl -f http://localhost:8080/index 2>/dev/null; then
+                                    echo "✅ 应用健康检查通过"
+                                    break
+                                else
+                                    echo "⏳ 等待应用启动... ($i/6)"
+                                    sleep 10
+                                fi
+                            done
+                            
+                            # 显示容器日志
+                            echo "=== 容器日志 ==="
+                            docker logs --tail 20 $DOCKER_CONTAINER
+                            
+                        else
+                            echo "❌ 容器启动失败"
+                            echo "=== 容器日志 ==="
+                            docker logs $DOCKER_CONTAINER
+                            exit 1
+                        fi
+                    '''
                 }
             }
         }
