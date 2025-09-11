@@ -18,6 +18,8 @@ pipeline {
             steps {
                 script {
                     echo "Building from branch: ${params.git_branch}"
+                    // 检出代码
+                    checkout scm
                     // 检查当前目录和文件
                     sh 'pwd'
                     sh 'ls -la'
